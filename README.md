@@ -1,12 +1,11 @@
-<center>
-SMARTFARM <br>
+#SMARTFARM
 SmartFarm es una aplicación orientada al sector ganadero, diseñada para pequeños y medianos productores que actualmente gestionan la alimentación de su ganado, sin apoyo tecnológico ni cálculos nutricionales precisos. Esta situación genera problemas como mala nutrición animal, desperdicio de alimento, incremento de costos y baja productividad.
 <br>
+<center><img width="578" height="577" alt="image" src="https://github.com/user-attachments/assets/b3e3e8a2-7c39-4ca2-8696-b5592933317d" />
 
-<img width="578" height="577" alt="image" src="https://github.com/user-attachments/assets/b3e3e8a2-7c39-4ca2-8696-b5592933317d" />
 
+Desarrollado por: CodeLink Solutions</center>
 
-Desarrollado por: CodeLink Solutions
 </center>
 
 EQUIPO DE TRABAJO:<br>
