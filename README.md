@@ -6,7 +6,7 @@ SmartFarm es una aplicación orientada al sector ganadero, diseñada para peque�
 Desarrollado por: CodeLink Solutions
 
 
-EQUIPO DE TRABAJO:
+EQUIPO DE TRABAJO:<br>
 
 °LIDER DEL EQUIPO/ INTEGRADOR / DESARROLLADOR BACKEND
    Julio Andres Reyes Garcia
