@@ -1,4 +1,4 @@
-SmartFarm AI
+# SmartFarm AI
 
 Aplicación Flutter para la gestión de ganado y la generación de recomendaciones de alimentación basadas en datos.
 
@@ -8,7 +8,7 @@ Aplicación Flutter para la gestión de ganado y la generación de recomendacion
 
 La app está diseñada como un prototipo local con persistencia en SQLite y una interfaz moderna con navegación inferior.
 
-Funcionalidades principales
+## Funcionalidades principales
 
 - Inicio de sesión local para acceder a la aplicación
 - Dashboard con métricas clave:
@@ -28,7 +28,7 @@ Funcionalidades principales
 - Generación de recomendaciones de IA para la nutrición del ganado
 - Importante: los datos se almacenan localmente usando SQLite
 
-Estructura del proyecto
+## Estructura del proyecto
 
 - `lib/main.dart`: punto de entrada de la aplicación
 - `lib/screens/`: pantallas principales de la app
@@ -55,7 +55,7 @@ Estructura del proyecto
 - `lib/theme/`: definición de tema y estilos
 - `lib/utils/`: utilidades de formato y otras helpers
 
-Dependencias
+## Dependencias
 
 El proyecto utiliza las siguientes dependencias principales:
 
@@ -66,7 +66,7 @@ El proyecto utiliza las siguientes dependencias principales:
 - `path_provider`
 - `intl`
 
-Instalación y ejecución
+## Instalación y ejecución
 
 1. Asegúrate de tener Flutter instalado y configurado.
 2. Desde la raíz del proyecto:
@@ -76,14 +76,14 @@ flutter pub get
 flutter run
 ```
 
-Si deseas ejecutar en un dispositivo físico o emulador, selecciona el target apropiado antes de ejecutar `flutter run`.
+> Si deseas ejecutar en un dispositivo físico o emulador, selecciona el target apropiado antes de ejecutar `flutter run`.
 
-Credenciales de demo
+## Credenciales de demo
 
 - Email: `admin@smartfarm.ai`
 - Password: `1234`
 
-Cómo usar
+## Cómo usar
 
 1. Inicia sesión con las credenciales de demo.
 2. En la pestaña `Inicio`, revisa el estado general del sistema.
@@ -91,16 +91,17 @@ Cómo usar
 4. Desde el detalle del animal, agrega raciones, producción o costos.
 5. En la pestaña `IA`, genera o refresca recomendaciones nutricionales.
 
-Notas de desarrollo
+## Notas de desarrollo
 
 - La aplicación usa `MultiProvider` para manejar estado global.
 - `SessionProvider` controla la sesión de usuario.
 - `AnimalsProvider` sincroniza la lista de animales y las actualizaciones.
 - `DashboardProvider` obtiene métricas agregadas para el dashboard.
 
-Siguiente pasos sugeridos
+## Siguiente pasos sugeridos
 
 - Integrar autenticación real o un backend remoto.
 - Añadir sincronización en la nube.
 - Mejorar la generación de recomendaciones con un modelo de IA real.
 - Añadir pruebas unitarias y de widget.
+
