@@ -2,7 +2,7 @@ SmartFarm AI
 
 Aplicación Flutter para la gestión de ganado y la generación de recomendaciones de alimentación basadas en datos.
 
-Descripción
+##Descripción
 
 `SmartFarm AI` es un proyecto de gestión agrícola que permite controlar animales, registrar raciones, producción y costos, y obtener recomendaciones nutricionales generadas por la funcionalidad de IA integrada.
 
