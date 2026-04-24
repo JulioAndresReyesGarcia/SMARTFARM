@@ -1,4 +1,4 @@
-# SmartFarm AI
+# SmartFarm AI.
 
 Aplicación Flutter para la gestión de ganado y la generación de recomendaciones de alimentación basadas en datos.
 
