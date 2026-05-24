@@ -12,6 +12,7 @@ import 'package:smartfarm_ai/services/recomendaciones_service.dart';
 import 'package:smartfarm_ai/services/dashboard_provider.dart';
 import 'package:smartfarm_ai/utils/formatters.dart';
 import 'package:smartfarm_ai/widgets/empty_state.dart';
+import 'package:smartfarm_ai/widgets/charts.dart';
 
 class AnimalDetailScreen extends StatefulWidget {
   final int animalId;
@@ -293,6 +294,7 @@ class _ResumenTab extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
+    final animalsProvider = context.read<AnimalsProvider>();
     return ListView(
       padding: const EdgeInsets.only(top: 8, bottom: 24),
       children: [
@@ -328,8 +330,85 @@ class _ResumenTab extends StatelessWidget {
             ),
           ),
         ),
+        FutureBuilder(
+          future: animalsProvider.getAnimalProductionSeries(animalId, days: 30),
+          builder: (context, snap) {
+            final points = snap.data ?? const [];
+            return LineSeriesCard(
+              title: 'Producción (animal)',
+              points: points,
+              emptyText: snap.connectionState == ConnectionState.waiting ? 'Cargando…' : 'Registra producción para ver la tendencia.',
+            );
+          },
+        ),
+        FutureBuilder(
+          future: animalsProvider.getAnimalFeedingVsProductionPoint(animalId, days: 14),
+          builder: (context, snap) {
+            final v = snap.data;
+            return Card(
+              margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Alimentación vs Producción', style: Theme.of(context).textTheme.titleMedium),
+                    const SizedBox(height: 10),
+                    if (snap.connectionState == ConnectionState.waiting)
+                      Text(
+                        'Cargando…',
+                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: cs.onSurfaceVariant),
+                      )
+                    else if (v == null)
+                      Text(
+                        'Registra raciones y producción para estimar relación.',
+                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: cs.onSurfaceVariant),
+                      )
+                    else
+                      Wrap(
+                        spacing: 12,
+                        runSpacing: 10,
+                        children: [
+                          _MetricChip(label: 'Prom. ración (14d)', value: '${Formatters.number.format(v.a)} kg'),
+                          _MetricChip(label: 'Prom. producción (14d)', value: Formatters.number.format(v.b)),
+                        ],
+                      ),
+                  ],
+                ),
+              ),
+            );
+          },
+        ),
         _RecsPreview(animalId: animalId),
       ],
+    );
+  }
+}
+
+class _MetricChip extends StatelessWidget {
+  final String label;
+  final String value;
+
+  const _MetricChip({required this.label, required this.value});
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: cs.surfaceContainerHighest,
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(label, style: Theme.of(context).textTheme.labelLarge?.copyWith(color: cs.onSurfaceVariant)),
+          const SizedBox(height: 4),
+          Text(value, style: Theme.of(context).textTheme.titleMedium),
+        ],
+      ),
     );
   }
 }

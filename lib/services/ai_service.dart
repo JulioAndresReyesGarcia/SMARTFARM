@@ -48,22 +48,23 @@ class AiAnimalContext {
 }
 
 class AiService {
-  final String? openAiApiKey;
+  final String openAiApiKey;
   final Uri openAiEndpoint;
   final http.Client _client;
 
   AiService({
-    this.openAiApiKey,
+    String? openAiApiKey,
     Uri? openAiEndpoint,
     http.Client? client,
   })  : openAiEndpoint = openAiEndpoint ?? Uri.parse('https://api.openai.com/v1/chat/completions'),
+        openAiApiKey = (openAiApiKey ?? const String.fromEnvironment('OPENAI_API_KEY')).trim(),
         _client = client ?? http.Client();
 
   Future<AiRecommendation> recommend(AiAnimalContext ctx) async {
     final key = openAiApiKey;
-    if (key != null && key.trim().isNotEmpty) {
+    if (key.isNotEmpty) {
       try {
-        final rec = await _recommendViaOpenAi(ctx, key.trim());
+        final rec = await _recommendViaOpenAi(ctx, key);
         return rec;
       } catch (_) {
         return _recommendLocal(ctx);

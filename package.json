@@ -1,0 +1,12 @@
+{
+  "name": "smartfarm_ai",
+  "version": "1.0.0",
+  "description": "Aplicación Flutter para la gestión de ganado",
+  "main": "index.js",
+  "scripts": {
+    "test": "jest"
+  },
+  "devDependencies": {
+    "jest": "^29.0.0"
+  }
+}
