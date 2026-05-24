@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import 'package:smartfarm_ai/services/dashboard_provider.dart';
+import 'package:smartfarm_ai/services/demo_data_service.dart';
 import 'package:smartfarm_ai/widgets/empty_state.dart';
 import 'package:smartfarm_ai/widgets/stat_card.dart';
+import 'package:smartfarm_ai/widgets/charts.dart';
 
 class DashboardScreen extends StatelessWidget {
   const DashboardScreen({super.key});
@@ -12,6 +14,7 @@ class DashboardScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final provider = context.watch<DashboardProvider>();
     final stats = provider.stats;
+    final demo = DemoDataService();
     return Scaffold(
       appBar: AppBar(
         title: const Text('Dashboard'),
@@ -39,6 +42,28 @@ class DashboardScreen extends StatelessWidget {
                 StatCard(icon: Icons.restaurant, label: 'Raciones', value: '${stats.raciones}'),
                 StatCard(icon: Icons.water_drop, label: 'Producción', value: '${stats.produccion}'),
                 StatCard(icon: Icons.payments, label: 'Costos', value: '${stats.costos}'),
+                if (provider.productionOverTime.isEmpty && !provider.busy)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    child: FilledButton.icon(
+                      onPressed: () async {
+                        await demo.seedIfEmpty(days: 30);
+                        if (!context.mounted) return;
+                        await provider.refresh();
+                      },
+                      icon: const Icon(Icons.auto_fix_high),
+                      label: const Text('Agregar datos de ejemplo'),
+                    ),
+                  ),
+                LineSeriesCard(
+                  title: 'Producción (últimos días)',
+                  points: provider.productionOverTime,
+                  emptyText: 'Registra producción para ver la tendencia.',
+                ),
+                CostsVsProductionCard(
+                  title: 'Costos vs Producción (últimos días)',
+                  points: provider.costsVsProduction,
+                ),
                 const SizedBox(height: 8),
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 16),
