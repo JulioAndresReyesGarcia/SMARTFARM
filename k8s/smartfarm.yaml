@@ -1,0 +1,144 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: smartfarm
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: smartfarm-api-config
+  namespace: smartfarm
+data:
+  NODE_ENV: "production"
+  PORT: "3000"
+  DB_HOST: "smartfarm-postgres"
+  DB_PORT: "5432"
+  DB_NAME: "smartfarm"
+  DB_USER: "smartfarm"
+  JWT_EXPIRES_IN: "24h"
+  CORS_ORIGIN: "*"
+  DEMO_ADMIN_EMAIL: "admin@smartfarm.ai"
+  DEMO_ADMIN_PASSWORD: "1234"
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: smartfarm-api-secrets
+  namespace: smartfarm
+type: Opaque
+stringData:
+  DB_PASSWORD: "smartfarm_secret"
+  JWT_SECRET: "cambiar_por_secreto_largo_en_produccion"
+  OPENAI_API_KEY: ""
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: smartfarm-api
+  namespace: smartfarm
+  labels:
+    app: smartfarm-api
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: smartfarm-api
+  template:
+    metadata:
+      labels:
+        app: smartfarm-api
+    spec:
+      containers:
+        - name: api
+          image: smartfarm-api:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 3000
+          envFrom:
+            - configMapRef:
+                name: smartfarm-api-config
+            - secretRef:
+                name: smartfarm-api-secrets
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 3000
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 3000
+            initialDelaySeconds: 20
+            periodSeconds: 20
+          resources:
+            requests:
+              memory: "128Mi"
+              cpu: "100m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: smartfarm-api
+  namespace: smartfarm
+spec:
+  type: ClusterIP
+  selector:
+    app: smartfarm-api
+  ports:
+    - port: 80
+      targetPort: 3000
+      protocol: TCP
+      name: http
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: smartfarm-postgres
+  namespace: smartfarm
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: smartfarm-postgres
+  template:
+    metadata:
+      labels:
+        app: smartfarm-postgres
+    spec:
+      containers:
+        - name: postgres
+          image: postgres:16-alpine
+          ports:
+            - containerPort: 5432
+          env:
+            - name: POSTGRES_DB
+              value: smartfarm
+            - name: POSTGRES_USER
+              value: smartfarm
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: smartfarm-api-secrets
+                  key: DB_PASSWORD
+          volumeMounts:
+            - name: pgdata
+              mountPath: /var/lib/postgresql/data
+      volumes:
+        - name: pgdata
+          emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: smartfarm-postgres
+  namespace: smartfarm
+spec:
+  selector:
+    app: smartfarm-postgres
+  ports:
+    - port: 5432
+      targetPort: 5432

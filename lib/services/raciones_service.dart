@@ -1,40 +1,71 @@
-import 'package:smartfarm_ai/database/app_database.dart';
 import 'package:smartfarm_ai/models/racion.dart';
+import 'package:smartfarm_ai/services/repositories/raciones_repository.dart';
 
 class RacionesService {
-  Future<List<Racion>> getForAnimal(int animalId) async {
-    final db = await AppDatabase.instance.database;
-    final rows = await db.query(
-      'raciones',
-      where: 'animal_id = ?',
-      whereArgs: [animalId],
-      orderBy: 'fecha DESC, id DESC',
-    );
-    return rows.map(Racion.fromMap).toList(growable: false);
+  RacionesService({RacionesRepository? repository})
+      : _repo = repository ?? RacionesRepository();
+
+  final RacionesRepository _repo;
+
+  Future<List<Racion>> getAll({int? animalId}) async {
+    try {
+      return await _repo.getAll(animalId: animalId);
+    } catch (e) {
+      throw Exception('Error al listar raciones: $e');
+    }
   }
 
-  Future<int> create({
+  Future<List<Racion>> getForAnimal(int animalId) => getAll(animalId: animalId);
+
+  Future<Racion?> getById(int id) async {
+    try {
+      return await _repo.getById(id);
+    } catch (e) {
+      throw Exception('Error al obtener ración: $e');
+    }
+  }
+
+  Future<Racion> create({
     required int animalId,
     required DateTime fecha,
     required double cantidad,
     required String tipoAlimento,
   }) async {
-    final db = await AppDatabase.instance.database;
-    return db.insert(
-      'raciones',
-      Racion(
-        id: 0,
+    try {
+      return await _repo.create(
         animalId: animalId,
         fecha: fecha,
         cantidad: cantidad,
-        tipoAlimento: tipoAlimento.trim(),
-      ).toInsertMap(),
-    );
+        tipoAlimento: tipoAlimento,
+      );
+    } catch (e) {
+      throw Exception('Error al crear ración: $e');
+    }
   }
 
-  Future<void> delete(int id) async {
-    final db = await AppDatabase.instance.database;
-    await db.delete('raciones', where: 'id = ?', whereArgs: [id]);
+  Future<Racion> update(
+    int id, {
+    required double cantidad,
+    required String tipoAlimento,
+    int? animalId,
+  }) async {
+    try {
+      return await _repo.update(
+        id,
+        cantidad: cantidad,
+        tipoAlimento: tipoAlimento,
+        animalId: animalId,
+      );
+    } catch (e) {
+      throw Exception('Error al actualizar ración: $e');
+    }
+  }
+
+  Future<void> delete(int id, {int? animalId}) async {
+    try {
+      await _repo.delete(id, animalId: animalId);
+    } catch (e) {
+      throw Exception('Error al eliminar ración: $e');
+    }
   }
 }
-

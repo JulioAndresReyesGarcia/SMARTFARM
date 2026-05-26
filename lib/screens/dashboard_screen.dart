@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import 'package:smartfarm_ai/database/database_seeder.dart';
 import 'package:smartfarm_ai/services/dashboard_provider.dart';
-import 'package:smartfarm_ai/services/demo_data_service.dart';
 import 'package:smartfarm_ai/widgets/empty_state.dart';
 import 'package:smartfarm_ai/widgets/stat_card.dart';
 import 'package:smartfarm_ai/widgets/charts.dart';
@@ -14,7 +14,7 @@ class DashboardScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final provider = context.watch<DashboardProvider>();
     final stats = provider.stats;
-    final demo = DemoDataService();
+    final cs = Theme.of(context).colorScheme;
     return Scaffold(
       appBar: AppBar(
         title: const Text('Dashboard'),
@@ -29,7 +29,9 @@ class DashboardScreen extends StatelessWidget {
           ? EmptyState(
               icon: Icons.grass,
               title: 'SmartFarm AI',
-              message: provider.busy ? 'Cargando datos…' : 'Listo para gestionar tu ganado y nutrición.',
+              message: provider.busy
+                  ? 'Cargando datos…'
+                  : (provider.error ?? 'Listo para gestionar tu ganado y nutrición.'),
               action: FilledButton(
                 onPressed: provider.busy ? null : () => provider.refresh(),
                 child: const Text('Actualizar'),
@@ -38,6 +40,14 @@ class DashboardScreen extends StatelessWidget {
           : ListView(
               padding: const EdgeInsets.only(top: 8, bottom: 24),
               children: [
+                if (provider.error != null)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                    child: Text(
+                      provider.error!,
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(color: cs.error),
+                    ),
+                  ),
                 StatCard(icon: Icons.pets, label: 'Animales', value: '${stats.animales}'),
                 StatCard(icon: Icons.restaurant, label: 'Raciones', value: '${stats.raciones}'),
                 StatCard(icon: Icons.water_drop, label: 'Producción', value: '${stats.produccion}'),
@@ -47,7 +57,7 @@ class DashboardScreen extends StatelessWidget {
                     padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                     child: FilledButton.icon(
                       onPressed: () async {
-                        await demo.seedIfEmpty(days: 30);
+                        await DatabaseSeeder.instance.seedDemoHistory(days: 30);
                         if (!context.mounted) return;
                         await provider.refresh();
                       },
@@ -90,4 +100,3 @@ class DashboardScreen extends StatelessWidget {
     );
   }
 }
-

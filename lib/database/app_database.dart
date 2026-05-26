@@ -1,16 +1,22 @@
 import 'dart:async';
-import 'dart:math';
+import 'dart:io';
 
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:sqflite/sqflite.dart';
+
+import 'package:smartfarm_ai/database/database_seeder.dart';
 
 class AppDatabase {
   AppDatabase._();
 
   static final AppDatabase instance = AppDatabase._();
 
+  static const String dbFileName = 'app_data.db';
+  static const int dbVersion = 2;
+
   Database? _db;
+  Completer<void>? _initCompleter;
 
   Future<Database> get database async {
     final existing = _db;
@@ -20,29 +26,100 @@ class AppDatabase {
     return created;
   }
 
+  Future<void> initialize() async {
+    if (_initCompleter != null) {
+      return _initCompleter!.future;
+    }
+    _initCompleter = Completer<void>();
+    try {
+      await database;
+      _initCompleter!.complete();
+    } catch (e, st) {
+      _initCompleter!.completeError(e, st);
+      _initCompleter = null;
+      _db = null;
+      rethrow;
+    }
+  }
+
+  /// Seed en segundo plano para no bloquear el arranque de la UI.
+  Future<void> seedInBackground() async {
+    try {
+      await DatabaseSeeder.instance.seedIfNeeded();
+    } catch (_) {
+      // El seed puede reintentarse desde el dashboard.
+    }
+  }
+
   Future<Database> _open() async {
     final dir = await getApplicationDocumentsDirectory();
-    final path = p.join(dir.path, 'smartfarm_ai.db');
+    final path = p.join(dir.path, dbFileName);
+    await _migrateLegacyDatabase(dir.path, path);
+
+    try {
+      return await _openDatabaseAt(path);
+    } catch (_) {
+      await _deleteDatabaseFile(path);
+      await _deleteDatabaseFile(p.join(dir.path, 'smartfarm_ai.db'));
+      return _openDatabaseAt(path);
+    }
+  }
+
+  Future<Database> _openDatabaseAt(String path) {
     return openDatabase(
       path,
-      version: 1,
+      version: dbVersion,
       onConfigure: (db) async {
         await db.execute('PRAGMA foreign_keys = ON');
       },
       onCreate: (db, version) async {
         await _createSchema(db);
-        await _seed(db);
+      },
+      onUpgrade: (db, oldVersion, newVersion) async {
+        if (oldVersion < 2) {
+          await _upgradeToV2(db);
+        }
       },
     );
   }
 
+  Future<void> _deleteDatabaseFile(String path) async {
+    try {
+      final file = File(path);
+      if (await file.exists()) await file.delete();
+      final journal = File('$path-journal');
+      if (await journal.exists()) await journal.delete();
+      final wal = File('$path-wal');
+      if (await wal.exists()) await wal.delete();
+    } catch (_) {}
+  }
+
+  Future<void> _migrateLegacyDatabase(String dirPath, String newPath) async {
+    final legacyPath = p.join(dirPath, 'smartfarm_ai.db');
+    final legacyFile = File(legacyPath);
+    final newFile = File(newPath);
+    if (!await newFile.exists() && await legacyFile.exists()) {
+      await legacyFile.copy(newPath);
+    }
+  }
+
   Future<void> _createSchema(Database db) async {
+    await db.execute('''
+CREATE TABLE migrations (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  name TEXT NOT NULL UNIQUE,
+  applied_at TEXT NOT NULL DEFAULT (datetime('current_timestamp'))
+)
+''');
+
     await db.execute('''
 CREATE TABLE usuarios (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   nombre TEXT NOT NULL,
   email TEXT NOT NULL UNIQUE,
-  password TEXT NOT NULL
+  password TEXT NOT NULL,
+  created_at TEXT NOT NULL DEFAULT (datetime('current_timestamp')),
+  updated_at TEXT NOT NULL DEFAULT (datetime('current_timestamp'))
 )
 ''');
 
@@ -52,7 +129,9 @@ CREATE TABLE animales (
   nombre TEXT NOT NULL,
   peso REAL NOT NULL,
   edad INTEGER NOT NULL,
-  tipo TEXT NOT NULL
+  tipo TEXT NOT NULL,
+  created_at TEXT NOT NULL DEFAULT (datetime('current_timestamp')),
+  updated_at TEXT NOT NULL DEFAULT (datetime('current_timestamp'))
 )
 ''');
 
@@ -63,6 +142,8 @@ CREATE TABLE raciones (
   fecha TEXT NOT NULL,
   cantidad REAL NOT NULL,
   tipo_alimento TEXT NOT NULL,
+  created_at TEXT NOT NULL DEFAULT (datetime('current_timestamp')),
+  updated_at TEXT NOT NULL DEFAULT (datetime('current_timestamp')),
   FOREIGN KEY (animal_id) REFERENCES animales (id) ON DELETE CASCADE
 )
 ''');
@@ -73,6 +154,8 @@ CREATE TABLE recomendaciones (
   animal_id INTEGER NOT NULL,
   recomendacion TEXT NOT NULL,
   fecha TEXT NOT NULL,
+  created_at TEXT NOT NULL DEFAULT (datetime('current_timestamp')),
+  updated_at TEXT NOT NULL DEFAULT (datetime('current_timestamp')),
   FOREIGN KEY (animal_id) REFERENCES animales (id) ON DELETE CASCADE
 )
 ''');
@@ -83,6 +166,8 @@ CREATE TABLE registros_produccion (
   animal_id INTEGER NOT NULL,
   fecha TEXT NOT NULL,
   produccion REAL NOT NULL,
+  created_at TEXT NOT NULL DEFAULT (datetime('current_timestamp')),
+  updated_at TEXT NOT NULL DEFAULT (datetime('current_timestamp')),
   FOREIGN KEY (animal_id) REFERENCES animales (id) ON DELETE CASCADE
 )
 ''');
@@ -93,115 +178,89 @@ CREATE TABLE costos_alimentacion (
   animal_id INTEGER NOT NULL,
   costo REAL NOT NULL,
   fecha TEXT NOT NULL,
+  created_at TEXT NOT NULL DEFAULT (datetime('current_timestamp')),
+  updated_at TEXT NOT NULL DEFAULT (datetime('current_timestamp')),
   FOREIGN KEY (animal_id) REFERENCES animales (id) ON DELETE CASCADE
 )
 ''');
+
+    await _createIndexes(db);
+    await _insertMigration(db, 'schema_v2');
   }
 
-  Future<void> _seed(Database db) async {
-    await db.insert('usuarios', {
-      'nombre': 'Administrador',
-      'email': 'admin@smartfarm.ai',
-      'password': '1234',
-    });
+  Future<void> _upgradeToV2(Database db) async {
+    final applied = Sqflite.firstIntValue(
+          await db.rawQuery("SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='migrations'"),
+        ) ??
+        0;
 
-    final a1 = await db.insert('animales', {
-      'nombre': 'Luna',
-      'peso': 280.0,
-      'edad': 18,
-      'tipo': 'Bovino',
-    });
-    final a2 = await db.insert('animales', {
-      'nombre': 'ToroMax',
-      'peso': 450.0,
-      'edad': 36,
-      'tipo': 'Bovino',
-    });
-    final a3 = await db.insert('animales', {
-      'nombre': 'Nube',
-      'peso': 340.0,
-      'edad': 24,
-      'tipo': 'Caprino',
-    });
-
-    final now = DateTime.now().toIso8601String();
-    Future<void> rec(int animalId, String text) async {
-      await db.insert('recomendaciones', {
-        'animal_id': animalId,
-        'recomendacion': text,
-        'fecha': now,
-      });
+    if (applied == 0) {
+      await db.execute('''
+CREATE TABLE migrations (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  name TEXT NOT NULL UNIQUE,
+  applied_at TEXT NOT NULL DEFAULT (datetime('current_timestamp'))
+)
+''');
     }
 
-    await rec(a1, 'Dieta de engorde: aumentar energía y carbohidratos de calidad.');
-    await rec(a2, 'Dieta alta en proteína: priorizar fuentes proteicas y balance mineral.');
-    await rec(a3, 'Dieta balanceada: mantener proporción adecuada de energía y proteína.');
+    const tables = [
+      'usuarios',
+      'animales',
+      'raciones',
+      'recomendaciones',
+      'registros_produccion',
+      'costos_alimentacion',
+    ];
 
-    final rand = Random(7);
-    DateTime day(int daysAgo) {
-      final d = DateTime.now().subtract(Duration(days: daysAgo));
-      return DateTime(d.year, d.month, d.day, 8);
-    }
-
-    Future<void> prod(int animalId, DateTime fecha, double v) async {
-      await db.insert('registros_produccion', {
-        'animal_id': animalId,
-        'fecha': fecha.toIso8601String(),
-        'produccion': v,
-      });
-    }
-
-    Future<void> racion(int animalId, DateTime fecha, double kg, String tipo) async {
-      await db.insert('raciones', {
-        'animal_id': animalId,
-        'fecha': fecha.toIso8601String(),
-        'cantidad': kg,
-        'tipo_alimento': tipo,
-      });
-    }
-
-    Future<void> costo(int animalId, DateTime fecha, double v) async {
-      await db.insert('costos_alimentacion', {
-        'animal_id': animalId,
-        'costo': v,
-        'fecha': fecha.toIso8601String(),
-      });
-    }
-
-    for (var i = 29; i >= 0; i--) {
-      final fecha = day(i);
-      final lunaProd = 6.5 + rand.nextDouble() * 2.5;
-      final toroProd = 9.5 + rand.nextDouble() * 3.2;
-      final nubeProd = 3.0 + rand.nextDouble() * 1.6;
-
-      await prod(a1, fecha, double.parse(lunaProd.toStringAsFixed(2)));
-      await prod(a2, fecha, double.parse(toroProd.toStringAsFixed(2)));
-      if (i % 2 == 0) await prod(a3, fecha, double.parse(nubeProd.toStringAsFixed(2)));
-
-      final lunaKg = 7.2 + rand.nextDouble() * 1.0;
-      final toroKg = 11.0 + rand.nextDouble() * 1.6;
-      final nubeKg = 4.6 + rand.nextDouble() * 0.9;
-
-      await racion(a1, fecha, double.parse(lunaKg.toStringAsFixed(2)), i % 3 == 0 ? 'Concentrado + forraje' : 'Forraje');
-      await racion(a2, fecha, double.parse(toroKg.toStringAsFixed(2)), i % 3 == 0 ? 'Alto en proteína' : 'Balanceado');
-      if (i % 2 == 0) {
-        await racion(a3, fecha, double.parse(nubeKg.toStringAsFixed(2)), i % 4 == 0 ? 'Forraje de calidad' : 'Balanceado');
+    for (final table in tables) {
+      final columns = await db.rawQuery('PRAGMA table_info($table)');
+      final names = columns.map((c) => c['name'] as String).toSet();
+      if (!names.contains('created_at')) {
+        await db.execute(
+          "ALTER TABLE $table ADD COLUMN created_at TEXT NOT NULL DEFAULT (datetime('current_timestamp'))",
+        );
       }
-
-      final lunaCost = 18 + rand.nextDouble() * 6;
-      final toroCost = 28 + rand.nextDouble() * 10;
-      final nubeCost = 10 + rand.nextDouble() * 5;
-
-      await costo(a1, fecha, double.parse(lunaCost.toStringAsFixed(2)));
-      await costo(a2, fecha, double.parse(toroCost.toStringAsFixed(2)));
-      if (i % 2 == 0) await costo(a3, fecha, double.parse(nubeCost.toStringAsFixed(2)));
+      if (!names.contains('updated_at')) {
+        await db.execute(
+          "ALTER TABLE $table ADD COLUMN updated_at TEXT NOT NULL DEFAULT (datetime('current_timestamp'))",
+        );
+      }
     }
+
+    await _createIndexes(db);
+    await _insertMigration(db, 'schema_v2', ignore: true);
+  }
+
+  Future<void> _insertMigration(Database db, String name, {bool ignore = false}) async {
+    final row = {
+      'name': name,
+      'applied_at': DateTime.now().toIso8601String(),
+    };
+    if (ignore) {
+      await db.insert('migrations', row, conflictAlgorithm: ConflictAlgorithm.ignore);
+    } else {
+      await db.insert('migrations', row);
+    }
+  }
+
+  Future<void> _createIndexes(Database db) async {
+    await db.execute('CREATE INDEX IF NOT EXISTS idx_usuarios_email ON usuarios (email)');
+    await db.execute('CREATE INDEX IF NOT EXISTS idx_animales_tipo ON animales (tipo)');
+    await db.execute('CREATE INDEX IF NOT EXISTS idx_raciones_animal_fecha ON raciones (animal_id, fecha DESC)');
+    await db.execute('CREATE INDEX IF NOT EXISTS idx_recomendaciones_animal_fecha ON recomendaciones (animal_id, fecha DESC)');
+    await db.execute(
+      'CREATE INDEX IF NOT EXISTS idx_registros_produccion_animal_fecha ON registros_produccion (animal_id, fecha DESC)',
+    );
+    await db.execute(
+      'CREATE INDEX IF NOT EXISTS idx_costos_alimentacion_animal_fecha ON costos_alimentacion (animal_id, fecha DESC)',
+    );
   }
 
   Future<void> close() async {
     final db = _db;
     _db = null;
+    _initCompleter = null;
     await db?.close();
   }
 }
-

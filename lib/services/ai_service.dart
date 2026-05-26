@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:http/http.dart' as http;
+import 'package:smartfarm_ai/ai/config/ai_config.dart';
 
 class AiRecommendation {
   final double suggestedFoodKgPerDay;
@@ -27,6 +28,7 @@ class AiRecommendation {
 
 class AiAnimalContext {
   final int animalId;
+  final String nombre;
   final String tipo;
   final double pesoKg;
   final int edadMeses;
@@ -37,6 +39,7 @@ class AiAnimalContext {
 
   const AiAnimalContext({
     required this.animalId,
+    this.nombre = '',
     required this.tipo,
     required this.pesoKg,
     required this.edadMeses,
@@ -57,7 +60,7 @@ class AiService {
     Uri? openAiEndpoint,
     http.Client? client,
   })  : openAiEndpoint = openAiEndpoint ?? Uri.parse('https://api.openai.com/v1/chat/completions'),
-        openAiApiKey = (openAiApiKey ?? const String.fromEnvironment('OPENAI_API_KEY')).trim(),
+        openAiApiKey = (openAiApiKey ?? AiConfig.openAiApiKey).trim(),
         _client = client ?? http.Client();
 
   Future<AiRecommendation> recommend(AiAnimalContext ctx) async {
@@ -81,7 +84,10 @@ class AiService {
         {
           'role': 'system',
           'content':
-              'Eres un especialista en nutrición animal. Debes devolver únicamente un JSON válido con la recomendación.',
+              'Eres SmartFarm AI, especialista en nutrición y manejo ganadero. '
+              'Devuelve únicamente JSON válido con la recomendación. '
+              'Prioriza seguridad alimentaria, eficiencia y bienestar animal. '
+              'No des diagnósticos clínicos.',
         },
         {
           'role': 'user',

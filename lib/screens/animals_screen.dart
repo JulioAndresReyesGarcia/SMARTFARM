@@ -32,6 +32,7 @@ class AnimalsScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final provider = context.watch<AnimalsProvider>();
     final items = provider.items;
+    final cs = Theme.of(context).colorScheme;
     return Scaffold(
       appBar: AppBar(
         title: const Text('Ganado'),
@@ -46,26 +47,43 @@ class AnimalsScreen extends StatelessWidget {
           ? EmptyState(
               icon: Icons.pets,
               title: 'Sin animales',
-              message: provider.busy ? 'Cargando…' : 'Registra tu primer animal para empezar.',
+              message: provider.busy
+                  ? 'Cargando…'
+                  : (provider.error ?? 'Registra tu primer animal para empezar.'),
               action: FilledButton.icon(
                 onPressed: provider.busy ? null : () => _openCreate(context),
                 icon: const Icon(Icons.add),
                 label: const Text('Registrar animal'),
               ),
             )
-          : RefreshIndicator(
-              onRefresh: provider.refresh,
-              child: ListView.builder(
-                padding: const EdgeInsets.only(top: 8, bottom: 96),
-                itemCount: items.length,
-                itemBuilder: (context, i) {
-                  final a = items[i];
-                  return AnimalCard(
-                    animal: a,
-                    onTap: () => _openDetail(context, a),
-                  );
-                },
-              ),
+          : Column(
+              children: [
+                if (provider.error != null)
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+                    child: Text(
+                      provider.error!,
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(color: cs.error),
+                    ),
+                  ),
+                Expanded(
+                  child: RefreshIndicator(
+                    onRefresh: provider.refresh,
+                    child: ListView.builder(
+                      padding: const EdgeInsets.only(top: 8, bottom: 96),
+                      itemCount: items.length,
+                      itemBuilder: (context, i) {
+                        final a = items[i];
+                        return AnimalCard(
+                          animal: a,
+                          recommendationBadge: provider.recommendationBadges[a.id],
+                          onTap: () => _openDetail(context, a),
+                        );
+                      },
+                    ),
+                  ),
+                ),
+              ],
             ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: provider.busy ? null : () => _openCreate(context),
@@ -75,4 +93,3 @@ class AnimalsScreen extends StatelessWidget {
     );
   }
 }
-

@@ -1,0 +1,47 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: smartfarm-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: smartfarm
+      POSTGRES_USER: smartfarm
+      POSTGRES_PASSWORD: smartfarm_secret
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U smartfarm -d smartfarm"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  api:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: smartfarm-api
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: smartfarm
+      DB_USER: smartfarm
+      DB_PASSWORD: smartfarm_secret
+      JWT_SECRET: ${JWT_SECRET:-cambiar_en_produccion_min_32_caracteres}
+      JWT_EXPIRES_IN: 24h
+      CORS_ORIGIN: "*"
+      DEMO_ADMIN_EMAIL: admin@smartfarm.ai
+      DEMO_ADMIN_PASSWORD: "1234"
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+    ports:
+      - "3000:3000"
+
+volumes:
+  postgres_data:

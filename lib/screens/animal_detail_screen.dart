@@ -525,7 +525,7 @@ class _RacionesTabState extends State<_RacionesTab> {
 
   Future<void> _delete(int id) async {
     final dashProvider = context.read<DashboardProvider>();
-    await widget.service.delete(id);
+    await widget.service.delete(id, animalId: widget.animalId);
     await dashProvider.refresh();
     await _load();
   }
@@ -605,7 +605,7 @@ class _ProduccionTabState extends State<_ProduccionTab> {
 
   Future<void> _delete(int id) async {
     final dashProvider = context.read<DashboardProvider>();
-    await widget.service.delete(id);
+    await widget.service.delete(id, animalId: widget.animalId);
     await dashProvider.refresh();
     await _load();
   }
@@ -684,7 +684,7 @@ class _CostosTabState extends State<_CostosTab> {
 
   Future<void> _delete(int id) async {
     final dashProvider = context.read<DashboardProvider>();
-    await widget.service.delete(id);
+    await widget.service.delete(id, animalId: widget.animalId);
     await dashProvider.refresh();
     await _load();
   }

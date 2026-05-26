@@ -1,57 +1,55 @@
-import 'package:sqflite/sqflite.dart';
-
-import 'package:smartfarm_ai/database/app_database.dart';
 import 'package:smartfarm_ai/models/animal.dart';
-import 'package:smartfarm_ai/services/recomendaciones_service.dart';
+import 'package:smartfarm_ai/services/repositories/animales_repository.dart';
 
+/// Fachada pública: delega a SQLite local o API remota según [AppConfig].
 class AnimalesService {
-  final RecomendacionesService _recomendaciones = RecomendacionesService();
+  AnimalesService({AnimalesRepository? repository})
+      : _repo = repository ?? AnimalesRepository();
 
-  Future<List<Animal>> getAll() async {
-    final db = await AppDatabase.instance.database;
-    final rows = await db.query('animales', orderBy: 'id DESC');
-    return rows.map(Animal.fromMap).toList(growable: false);
+  final AnimalesRepository _repo;
+
+  Future<List<Animal>> getAll({String? tipo}) async {
+    try {
+      return await _repo.getAll(tipo: tipo);
+    } catch (e) {
+      throw Exception('Error al listar animales: $e');
+    }
   }
 
   Future<Animal?> getById(int id) async {
-    final db = await AppDatabase.instance.database;
-    final rows = await db.query('animales', where: 'id = ?', whereArgs: [id], limit: 1);
-    if (rows.isEmpty) return null;
-    return Animal.fromMap(rows.first);
+    try {
+      return await _repo.getById(id);
+    } catch (e) {
+      throw Exception('Error al obtener animal: $e');
+    }
   }
 
-  Future<int> create({
+  Future<Animal> create({
     required String nombre,
     required double peso,
     required int edad,
     required String tipo,
   }) async {
-    final db = await AppDatabase.instance.database;
-    final id = await db.insert('animales', {
-      'nombre': nombre.trim(),
-      'peso': peso,
-      'edad': edad,
-      'tipo': tipo.trim(),
-    });
-    await _recomendaciones.generateForAnimal(animalId: id);
-    return id;
+    try {
+      return await _repo.create(nombre: nombre, peso: peso, edad: edad, tipo: tipo);
+    } catch (e) {
+      throw Exception('Error al crear animal: $e');
+    }
   }
 
-  Future<void> update(Animal animal) async {
-    final db = await AppDatabase.instance.database;
-    await db.update(
-      'animales',
-      animal.toInsertMap(),
-      where: 'id = ?',
-      whereArgs: [animal.id],
-      conflictAlgorithm: ConflictAlgorithm.abort,
-    );
-    await _recomendaciones.generateForAnimal(animalId: animal.id);
+  Future<Animal> update(Animal animal) async {
+    try {
+      return await _repo.update(animal);
+    } catch (e) {
+      throw Exception('Error al actualizar animal: $e');
+    }
   }
 
   Future<void> delete(int id) async {
-    final db = await AppDatabase.instance.database;
-    await db.delete('animales', where: 'id = ?', whereArgs: [id]);
+    try {
+      await _repo.delete(id);
+    } catch (e) {
+      throw Exception('Error al eliminar animal: $e');
+    }
   }
 }
-
